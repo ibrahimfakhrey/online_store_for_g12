@@ -1,88 +1,72 @@
-/* General Styles */
+/* General styling */
 body {
     font-family: Arial, sans-serif;
-    background-color: #ffe6f2; /* Light pink background */
-    color: #5c005c; /* Deep purple text color */
+    background-color: #ffe6f2;
+    color: #333;
     margin: 0;
     padding: 0;
+}
+
+/* Navbar styling */
+.navbar {
+    background-color: #d63384;
     display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    justify-content: space-between;
+    padding: 10px 20px;
 }
-
-/* Form Container */
-.form-container {
-    background-color: #fff;
-    padding: 40px 30px;
-    border-radius: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    text-align: center;
-    max-width: 400px;
-    width: 100%;
-}
-
-.form-container h2 {
-    font-size: 28px;
-    color: #ff3399; /* Pink heading color */
-    margin-bottom: 20px;
-}
-
-/* Input Fields */
-form input[type="text"],
-form input[type="tel"],
-form input[type="email"],
-form input[type="password"] {
-    width: 100%;
-    padding: 15px;
-    margin: 10px 0;
-    border: 2px solid #ff99cc; /* Pink border */
-    border-radius: 10px;
-    font-size: 16px;
-    background-color: #fff;
-    color: #5c005c; /* Deep purple text */
-    box-sizing: border-box;
-    outline: none;
-    transition: all 0.3s ease;
-}
-
-form input[type="email"]:focus,
-form input[type="password"]:focus {
-    border-color: #ff66b2; /* Slightly darker pink on focus */
-    box-shadow: 0 0 8px rgba(255, 102, 178, 0.3); /* Glow on focus */
-}
-
-/* Submit Button */
-form button[type="submit"] {
-    width: 100%;
-    padding: 15px;
-    background-color: #ff66b2; /* Pink button background */
-    border: none;
-    border-radius: 30px;
+.navbar a {
     color: white;
-    font-size: 16px;
+    text-decoration: none;
+    margin: 0 10px;
+    font-weight: bold;
+}
+
+/* Button styling */
+.button, .delete-btn {
+    background-color: #d63384;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    margin-top: 10px;
 }
 
-form button[type="submit"]:hover {
-    background-color: #cc66ff; /* Purple on hover */
+/* Container styles */
+.dashboard-container {
+    margin: 20px auto;
+    max-width: 800px;
+}
+.form-container {
+    background-color: #ffd6e7;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 400px;
+    margin: 20px auto;
+}
+.section {
+    background-color: #ffd6e7;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+.section h2 {
+    color: #d63384;
 }
 
-/* Media Query for Mobile */
-@media (max-width: 480px) {
-    .form-container {
-        padding: 30px 20px;
-    }
-
-    form input[type="email"],
-    form input[type="password"],
-    form button[type="submit"] {
-        font-size: 14px;
-        padding: 12px;
-    }
-
-    .form-container h2 {
-        font-size: 24px;
-    }
+/* Card styling */
+.card-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+.card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
 }

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Payment Card</title>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+    <div class="navbar">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/cart">🛒</a>
+        <a href="/logout">Log Out</a>
+    </div>
+
+    <div class="form-container">
+        <h2>Add Payment Card</h2>
+        <form action="{{ url_for('add_card') }}" method="POST">
+            <input type="text" name="card_number" placeholder="Card Number" required>
+            <input type="text" name="card_type" placeholder="Card Type (e.g., Visa, MasterCard)" required>
+            <input type="date" name="expiry_date" required>
+            <button type="submit">Add Card</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -14,7 +14,9 @@ login_manager.login_view = 'login'  # Redirect users here if not logged in
 login_manager.login_message_category = 'info'
 
 # User model
-class User(UserMixin, db.Model):  # UserMixin is required by Flask-Login
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(15), nullable=False)
@@ -22,6 +24,51 @@ class User(UserMixin, db.Model):  # UserMixin is required by Flask-Login
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(50), default='customer', nullable=False)
 
+    # Relationships
+    orders = db.relationship('Order', back_populates='user', cascade="all, delete-orphan")
+    cards = db.relationship('Card', back_populates='user', cascade="all, delete-orphan")
+
+class Product(db.Model):
+    __tablename__ = 'products'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    description = db.Column(db.String(255))
+    stock = db.Column(db.Integer, nullable=False)
+
+    # Relationship to Orders
+    orders = db.relationship('OrderProduct', back_populates='product', cascade="all, delete-orphan")
+
+class Order(db.Model):
+    __tablename__ = 'orders'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    date_created = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    # Relationships
+    user = db.relationship('User', back_populates='orders')
+    products = db.relationship('OrderProduct', back_populates='order', cascade="all, delete-orphan")
+
+class OrderProduct(db.Model):
+    __tablename__ = 'order_products'
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+
+    # Relationships
+    order = db.relationship('Order', back_populates='products')
+    product = db.relationship('Product', back_populates='orders')
+
+class Card(db.Model):
+    __tablename__ = 'cards'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    card_number = db.Column(db.String(20), unique=True, nullable=False)
+    card_type = db.Column(db.String(50), nullable=False)
+    expiry_date = db.Column(db.String(5), nullable=False)
+
+    # Relationship to User
+    user = db.relationship('User', back_populates='cards')
 # Flask-Login: Load user
 @login_manager.user_loader
 def load_user(user_id):
@@ -76,11 +123,6 @@ def login():
 
     return render_template('login.html')
 
-# Route for logged-in user dashboard
-@app.route('/dashboard')
-@login_required  # Require login to access the dashboard
-def dashboard():
-    return f"Welcome, {current_user.name}! You are logged in as {current_user.role}."
 
 # Route to log out the user
 @app.route('/logout')
@@ -90,6 +132,120 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
+
+# Route to view the dashboard
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user_orders = current_user.orders  # Access user's orders
+    user_cards = current_user.cards  # Access user's cards
+    all_products = Product.query.all()  # Display all products
+    return render_template('dashboard.html', orders=user_orders, cards=user_cards, products=all_products)
+
+
+# Route to create a new product
+@app.route('/product/new', methods=['GET', 'POST'])
+@login_required
+def create_product():
+    if request.method == 'POST':
+        name = request.form['name']
+        price = float(request.form['price'])
+        description = request.form.get('description', '')
+        stock = int(request.form['stock'])
+
+        new_product = Product(name=name, price=price, description=description, stock=stock)
+        db.session.add(new_product)
+        db.session.commit()
+        flash('Product created successfully!')
+        return redirect(url_for('dashboard'))
+    return render_template('create_product.html')
+
+
+# Route to create a new order
+@app.route('/order/new', methods=['POST'])
+@login_required
+def create_order():
+    product_ids = request.form.getlist('product_ids')  # List of product IDs for the order
+    new_order = Order(user_id=current_user.id)
+    db.session.add(new_order)
+    db.session.commit()
+
+    for product_id in product_ids:
+        order_product = OrderProduct(order_id=new_order.id, product_id=product_id)
+        db.session.add(order_product)
+
+    db.session.commit()
+    flash('Order placed successfully!')
+    return redirect(url_for('dashboard'))
+
+
+# Route to view all orders for the current user
+@app.route('/orders')
+@login_required
+def view_orders():
+    user_orders = current_user.orders  # All orders for the logged-in user
+    return render_template('orders.html', orders=user_orders)
+
+
+# Route to add a new payment card
+@app.route('/card/new', methods=['GET', 'POST'])
+@login_required
+def add_card():
+    if request.method == 'POST':
+        card_number = request.form['card_number']
+        card_type = request.form['card_type']
+        expiry_date = request.form['expiry_date']
+
+        new_card = Card(user_id=current_user.id, card_number=card_number, card_type=card_type, expiry_date=expiry_date)
+        db.session.add(new_card)
+        db.session.commit()
+        flash('Payment card added successfully!')
+        return redirect(url_for('dashboard'))
+    return render_template('add_card.html')
+
+
+# Route to view all payment cards for the current user
+@app.route('/cards')
+@login_required
+def view_cards():
+    user_cards = current_user.cards
+    return render_template('cards.html', cards=user_cards)
+
+
+# Route to delete a product
+@app.route('/product/delete/<int:product_id>', methods=['POST'])
+@login_required
+def delete_product(product_id):
+    product = Product.query.get(product_id)
+    if product:
+        db.session.delete(product)
+        db.session.commit()
+        flash('Product deleted successfully!')
+    return redirect(url_for('dashboard'))
+
+
+# Route to delete an order
+@app.route('/order/delete/<int:order_id>', methods=['POST'])
+@login_required
+def delete_order(order_id):
+    order = Order.query.get(order_id)
+    if order:
+        db.session.delete(order)
+        db.session.commit()
+        flash('Order deleted successfully!')
+    return redirect(url_for('view_orders'))
+
+
+# Route to delete a payment card
+@app.route('/card/delete/<int:card_id>', methods=['POST'])
+@login_required
+def delete_card(card_id):
+    card = Card.query.get(card_id)
+    if card:
+        db.session.delete(card)
+        db.session.commit()
+        flash('Card deleted successfully!')
+    return redirect(url_for('view_cards'))
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Create all tables
