@@ -12,11 +12,10 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'  # Redirect users here if not logged in
 login_manager.login_message_category = 'info'
-
 # User model
-
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(15), nullable=False)
@@ -27,20 +26,26 @@ class User(UserMixin, db.Model):
     # Relationships
     orders = db.relationship('Order', back_populates='user', cascade="all, delete-orphan")
     cards = db.relationship('Card', back_populates='user', cascade="all, delete-orphan")
+    cart = db.relationship('Cart', back_populates='user', uselist=False, cascade="all, delete-orphan")
+
 
 class Product(db.Model):
     __tablename__ = 'products'
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(255))
     stock = db.Column(db.Integer, nullable=False)
 
-    # Relationship to Orders
-    orders = db.relationship('OrderProduct', back_populates='product', cascade="all, delete-orphan")
+    # Relationships
+    orders = db.relationship('OrderProduct', back_populates='product')
+    cart_items = db.relationship('CartItem', back_populates='product')
+
 
 class Order(db.Model):
     __tablename__ = 'orders'
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     date_created = db.Column(db.DateTime, default=db.func.current_timestamp())
@@ -49,8 +54,10 @@ class Order(db.Model):
     user = db.relationship('User', back_populates='orders')
     products = db.relationship('OrderProduct', back_populates='order', cascade="all, delete-orphan")
 
+
 class OrderProduct(db.Model):
     __tablename__ = 'order_products'
+
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
@@ -59,16 +66,43 @@ class OrderProduct(db.Model):
     order = db.relationship('Order', back_populates='products')
     product = db.relationship('Product', back_populates='orders')
 
+
 class Card(db.Model):
     __tablename__ = 'cards'
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     card_number = db.Column(db.String(20), unique=True, nullable=False)
     card_type = db.Column(db.String(50), nullable=False)
     expiry_date = db.Column(db.String(5), nullable=False)
 
-    # Relationship to User
+    # Relationships
     user = db.relationship('User', back_populates='cards')
+
+
+class CartItem(db.Model):
+    __tablename__ = 'cart_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    cart_id = db.Column(db.Integer, db.ForeignKey('cart.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+
+    # Relationships
+    cart = db.relationship('Cart', back_populates='items')
+    product = db.relationship('Product', back_populates='cart_items')
+
+
+class Cart(db.Model):
+    __tablename__ = 'cart'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    date_added = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    # Relationships
+    user = db.relationship('User', back_populates='cart')
+    items = db.relationship('CartItem', back_populates='cart', cascade="all, delete-orphan")
 # Flask-Login: Load user
 @login_manager.user_loader
 def load_user(user_id):
@@ -246,6 +280,53 @@ def delete_card(card_id):
         db.session.commit()
         flash('Card deleted successfully!')
     return redirect(url_for('view_cards'))
+
+
+@app.route('/cart')
+@login_required
+def view_cart():
+    cart_items = current_user.cart.items if current_user.cart else []
+    total = sum(item.product.price * item.quantity for item in cart_items)  # Calculate total
+    return render_template('cart.html', items=cart_items, total=total)
+
+
+# Route to add a product to the cart
+@app.route('/cart/add/<int:product_id>', methods=['POST'])
+@login_required
+def add_to_cart(product_id):
+    product = Product.query.get(product_id)
+    if product:
+        # Check if the user has a cart
+        if not current_user.cart:  # This checks if the user has a cart
+            new_cart = Cart(user_id=current_user.id)
+            db.session.add(new_cart)
+            db.session.commit()
+
+        # Get the cart ID from the user's cart
+        cart_item = CartItem.query.filter_by(cart_id=current_user.cart.id, product_id=product_id).first()
+        if cart_item:
+            cart_item.quantity += 1  # Increment quantity if item already in cart
+        else:
+            cart_item = CartItem(cart_id=current_user.cart.id, product_id=product_id, quantity=1)
+            db.session.add(cart_item)
+
+        db.session.commit()
+        flash('Product added to cart!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/cart/remove/<int:item_id>', methods=['POST'])
+@login_required
+def remove_from_cart(item_id):
+    cart_item = CartItem.query.get(item_id)
+    if cart_item and cart_item.cart.user_id == current_user.id:
+        db.session.delete(cart_item)
+        db.session.commit()
+        flash('Item removed from cart!', 'info')
+    return redirect(url_for('view_cart'))
+
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Create all tables
